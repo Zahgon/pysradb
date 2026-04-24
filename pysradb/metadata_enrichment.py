@@ -23,38 +23,7 @@ def _prompt_install_enrichment_dependencies() -> bool:
     Returns:
         True if installation succeeded, False otherwise.
     """
-    try:
-        response = (
-            input(
-                "Enrichment requires 'instructor' and 'pydantic'. Install now? (yes/no): "
-            )
-            .strip()
-            .lower()
-        )
-    except (EOFError, KeyboardInterrupt):
-        return False
-
-    if response not in ["yes", "y"]:
-        print("Install with: pip install 'pysradb[enrichment]'")
-        return False
-
-    try:
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "instructor>=1.0.0",
-                "pydantic>=2.0.0",
-            ]
-        )
-        return True
-    except subprocess.CalledProcessError:
-        print(
-            "Installation failed. Install manually with: pip install 'pysradb[enrichment]'"
-        )
-        return False
+    pass
 
 
 class MetadataExtractor(ABC):
@@ -260,20 +229,7 @@ def load_ontology_reference() -> Dict[str, List[str]]:
     Returns:
         Dictionary with ontology terms (organs, tissues, anatomical_systems, cell_types, diseases)
     """
-    import json
-    import os
-
-    current_dir = os.path.dirname(__file__)
-    ontology_path = os.path.join(current_dir, "ontology_reference.json")
-
-    if not os.path.exists(ontology_path):
-        raise FileNotFoundError(
-            f"Ontology reference not found at {ontology_path}. "
-            "Please ensure ontology_reference.json is in the pysradb package directory."
-        )
-
-    with open(ontology_path) as f:
-        return json.load(f)
+    pass
 
 
 class LLMMetadataExtractor(MetadataExtractor):
@@ -303,80 +259,14 @@ class LLMMetadataExtractor(MetadataExtractor):
         self.client = self._initialize_client()
 
     def _provider_env_key(self) -> Optional[str]:
-        provider_name = self.provider.split("/")[0]
-        if provider_name.lower() == "openai":
-            return "OPENAI_API_KEY"
-        if provider_name.lower() == "anthropic":
-            return "ANTHROPIC_API_KEY"
-        if provider_name.lower() == "google":
-            return "GOOGLE_API_KEY"
-        if provider_name.lower() == "mistral":
-            return "MISTRAL_API_KEY"
-        if provider_name.lower() == "groq":
-            return "GROQ_API_KEY"
-        return None
+        pass
 
     def _check_ollama_available(self) -> bool:
         """Check if ollama is installed and running."""
-        try:
-            import subprocess
-
-            import requests
-
-            try:
-                subprocess.run(
-                    ["ollama", "--version"], capture_output=True, check=True, timeout=10
-                )
-            except (
-                subprocess.CalledProcessError,
-                FileNotFoundError,
-                subprocess.TimeoutExpired,
-            ):
-                return False
-
-            try:
-                response = requests.get("http://localhost:11434/api/tags", timeout=5)
-                return response.status_code == 200
-            except (requests.RequestException, requests.Timeout):
-                return False
-
-        except Exception:
-            return False
+        pass
 
     def _initialize_client(self):
-        try:
-            import instructor
-        except ImportError:
-            if _prompt_install_enrichment_dependencies():
-                import instructor
-            else:
-                raise ImportError(
-                    "instructor package required. Install with: pip install 'pysradb[enrichment]'"
-                )
-
-        client_kwargs = self.kwargs.copy()
-        if self.base_url:
-            client_kwargs.setdefault("client_kwargs", {})
-            client_kwargs["client_kwargs"].setdefault("base_url", self.base_url)
-
-        provider_name = self.provider.split("/")[0].lower()
-
-        if provider_name == "ollama":
-            if not self._check_ollama_available():
-                raise RuntimeError(
-                    "Ollama is not installed or not running. "
-                    "Please install ollama from https://ollama.ai/ and start it with 'ollama serve'. "
-                    "Then pull a model with 'ollama pull phi3:latest' (or another model like 'meditron-7b')."
-                )
-
-        if provider_name in ["ollama", "local"] and "mode" not in client_kwargs:
-            client_kwargs["mode"] = instructor.Mode.JSON
-
-        return instructor.from_provider(
-            self.provider,
-            api_key=self.api_key,
-            **client_kwargs,
-        )
+        pass
 
     def _create_extraction_prompt(
         self, text: str, fields: Optional[List[str]] = None
@@ -577,85 +467,15 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
 
     def _load_model(self):
         """Load the embedding model."""
-        if self.backend == "sentence-transformers":
-            try:
-                from sentence_transformers import SentenceTransformer
-
-                return SentenceTransformer(self.model_name)
-            except ImportError:
-                if _prompt_install_enrichment_dependencies():
-                    from sentence_transformers import SentenceTransformer
-
-                    return SentenceTransformer(self.model_name)
-                else:
-                    raise ImportError(
-                        "sentence-transformers required. Install with: pip install sentence-transformers"
-                    )
-        elif self.backend == "fastembed":
-            try:
-                from fastembed import TextEmbedding
-
-                return TextEmbedding(model_name=self.model_name)
-            except ImportError:
-                if _prompt_install_enrichment_dependencies():
-                    from fastembed import TextEmbedding
-
-                    return TextEmbedding(model_name=self.model_name)
-                else:
-                    raise ImportError(
-                        "fastembed required. Install with: pip install fastembed"
-                    )
-        else:
-            raise ValueError(f"Unsupported backend: {self.backend}")
+        pass
 
     def _get_cache_path(self) -> str:
         """Get path for embedding cache file."""
-        import hashlib
-        import os
-        from pathlib import Path
-
-        cache_dir = Path.home() / ".cache" / "pysradb"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        cache_key = f"{self.model_name}_{sorted(self.reference_categories.keys())}"
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()[:16]
-
-        return str(cache_dir / f"embeddings_{cache_hash}.npz")
+        pass
 
     def _compute_reference_embeddings(self) -> Dict[str, Any]:
         """Compute embeddings for reference categories with caching."""
-        import os
-
-        import numpy as np
-
-        cache_path = self._get_cache_path()
-
-        if os.path.exists(cache_path):
-            try:
-                cached = np.load(cache_path, allow_pickle=True)
-                embeddings = {k: cached[k] for k in cached.files}
-                self.logger.info(f"Loaded cached embeddings from {cache_path}")
-                return embeddings
-            except Exception as e:
-                self.logger.warning(f"Failed to load cache: {e}")
-
-        self.logger.info(
-            f"Computing embeddings for {sum(len(v) for v in self.reference_categories.values())} terms..."
-        )
-        embeddings = {}
-        for category, terms in self.reference_categories.items():
-            if self.backend == "sentence-transformers":
-                embeddings[category] = self.model.encode(terms, show_progress_bar=False)
-            elif self.backend == "fastembed":
-                embeddings[category] = np.array(list(self.model.embed(terms)))
-
-        try:
-            np.savez(cache_path, **embeddings)
-            self.logger.info(f"Cached embeddings to {cache_path}")
-        except Exception as e:
-            self.logger.warning(f"Failed to cache embeddings: {e}")
-
-        return embeddings
+        pass
 
     def _find_best_match(
         self, text_embedding, category: str, threshold: float = 0.3
@@ -900,45 +720,4 @@ def apply_dataframe_enrichment(
         ...     text_column="experiment_title"
         ... )
     """
-    if df is None or df.empty:
-        return df
-
-    try:
-        extractor = create_metadata_extractor(
-            method=method, backend=backend, model=model
-        )
-
-        if text_column is None:
-            candidates = [
-                "experiment_title",
-                "experiment_desc",
-                "study_title",
-                "description",
-                "sample_title",
-                "source_name",
-                "tissue",
-                "condition",
-                "treatment",
-                "age",
-                "sex",
-                "strain",
-            ]
-            for candidate in candidates:
-                if candidate in df.columns:
-                    text_column = candidate
-                    break
-
-        if text_column and text_column in df.columns:
-            return extractor.enrich_dataframe(
-                df, text_column=text_column, prefix=prefix, show_progress=show_progress
-            )
-        else:
-            logger.warning("No suitable text column found for enrichment")
-            return df
-
-    except ImportError as e:
-        logger.warning(f"Enrichment dependencies not installed: {e}")
-        return df
-    except Exception as e:
-        logger.warning(f"Enrichment failed: {e}")
-        return df
+    pass

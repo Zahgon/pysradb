@@ -34,15 +34,7 @@ def _get_ftp_file_size(url):
     size : int
         File size in bytes, or 0 if unable to determine
     """
-    try:
-        parsed = urlparse(url)
-        ftp = FTP(parsed.netloc)
-        ftp.login()
-        size = ftp.size(parsed.path)
-        ftp.quit()
-        return size if size is not None else 0
-    except Exception:
-        return 0
+    pass
 
 
 def _download_ftp_file(
@@ -93,9 +85,7 @@ def _download_ftp_file(
                 ftp.voidcmd(f"REST {first_byte}")
 
             def callback(data):
-                f.write(data)
-                if show_progress and file_size > 0:
-                    pbar.update(len(data))
+                pass
 
             ftp.retrbinary(f"RETR {parsed.path}", callback, blocksize=block_size)
 
@@ -129,17 +119,7 @@ def millify(n):
     millidx : str
               Formatted integer
     """
-    millnames = ["", " KB", " MB", " GB", " TB"]
-    # Source: http://stackoverflow.com/a/3155023/756986
-    n = float(n)
-    millidx = max(
-        0,
-        min(
-            len(millnames) - 1, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))
-        ),
-    )
-
-    return "{:.1f}{}".format(n / 10 ** (3 * millidx), millnames[millidx])
+    pass
 
 
 def get_file_size(row, url_col):
@@ -156,37 +136,7 @@ def get_file_size(row, url_col):
     -------
     content_length: int
     """
-    if row[url_col] is not None:
-        url = row[url_col]
-    else:
-        url = row.download_url
-    if url is pd.NA:
-        return 0
-    if not isinstance(url, str):
-        return 0
-    if url.startswith("ftp."):
-        url = "ftp://" + url
-
-    if url.startswith("ftp://"):
-        return _get_ftp_file_size(url)
-
-    try:
-        r = requests_3_retries().head(url)
-        size = int(r.headers["content-length"])
-        r.raise_for_status()
-    except requests.exceptions.Timeout:
-        sys.exit(f"Connection to {url} has timed out. Please retry.")
-    except requests.exceptions.HTTPError:
-        print(
-            f"The download URL:  {url}  is likely invalid.\n"
-            f"Removing {row.run_accession} from the download list\n",
-            flush=True,
-        )
-        return np.NaN
-    except KeyError:
-        print("Key error for: " + url, flush=True)
-        return 0
-    return size
+    pass
 
 
 def md5_validate_file(file_path, md5_hash):

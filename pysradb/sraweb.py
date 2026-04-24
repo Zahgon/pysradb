@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 
 
 def xmlescape(data):
-    return escape(data, entities={"'": "&apos;", '"': "&quot;"})
+    pass
 
 
 def _make_hashable(obj):
@@ -1412,19 +1412,7 @@ class SRAweb(object):
                         for col in fastq_cols:
 
                             def get_fastq_url(row):
-                                gsm = row.get("sample_accession", pd.NA)
-                                if pd.isna(gsm):
-                                    return pd.NA
-                                # Get SRX for this GSM
-                                srx = gsm_to_srx_map.get(gsm, pd.NA)
-                                if pd.isna(srx) or srx not in srx_to_fastq_map:
-                                    return pd.NA
-                                # Get first run accession for this SRX
-                                run_accs = list(srx_to_fastq_map[srx].keys())
-                                if run_accs:
-                                    fastq_row = srx_to_fastq_map[srx][run_accs[0]]
-                                    return fastq_row.get(col, pd.NA)
-                                return pd.NA
+                                pass
 
                             metadata_df[col] = metadata_df.apply(get_fastq_url, axis=1)
                     except Exception:
@@ -2436,15 +2424,15 @@ class SRAweb(object):
 
     def srr_to_pmid(self, srr):
         """Get PMIDs for Run Accessions (SRR)"""
-        return self.sra_to_pmid(srr)
+        pass
 
     def srx_to_pmid(self, srx):
         """Get PMIDs for Experiment Accessions (SRX)"""
-        return self.sra_to_pmid(srx)
+        pass
 
     def srs_to_pmid(self, srs):
         """Get PMIDs for Sample Accessions (SRS)"""
-        return self.sra_to_pmid(srs)
+        pass
 
     def gse_to_pmid(self, gse_accessions):
         """Get PMIDs for GSE accessions by searching PubMed Central

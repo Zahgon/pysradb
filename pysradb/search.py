@@ -199,21 +199,7 @@ class QuerySearch:
             message is "" if no format error has been identified, error
             message otherwise.
         """
-        matched_strings = []
-        for regex_expression in regex_matcher:
-            if re.match(regex_expression, input_query, re.IGNORECASE):
-                matched_strings.append(regex_matcher[regex_expression])
-        if not matched_strings:
-            return input_query, error_message
-        elif len(matched_strings) == 1:
-            return matched_strings[0], ""
-        else:
-            message = (
-                f"Multiple potential matches have been identified for {input_query}:\n"
-                f"{matched_strings}\n"
-                f"Please check your input.\n\n"
-            )
-            return input_query, message
+        pass
 
     def _validate_fields(self):
         """Verifies that user input format is correct.
@@ -249,204 +235,7 @@ class QuerySearch:
             If the input to any query field is in the wrong format
 
         """
-
-        message = ""
-
-        # verify layout
-        if self.fields["layout"] and str(self.fields["layout"]).upper() not in [
-            "SINGLE",
-            "PAIRED",
-        ]:
-            message += (
-                f"Incorrect layout field format: {self.fields['layout']}\n"
-                "--layout must be either SINGLE or PAIRED\n\n"
-            )
-        # verify mbases
-        if self.fields["mbases"]:
-            try:
-                self.fields["mbases"] = int(self.fields["mbases"])
-                if self.fields["mbases"] <= 0:
-                    raise ValueError
-            except (ValueError, TypeError):
-                message += (
-                    f"Incorrect mbases format: {self.fields['mbases']}\n"
-                    f"--mbases must be a positive integer\n\n"
-                )
-        # verify publication_date
-        date_regex = "(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[012])-(19|20)[0-9]{2}"
-        if self.fields["publication_date"] and not re.match(
-            f"^{date_regex}(:{date_regex})?$", self.fields["publication_date"]
-        ):
-            message += (
-                f"Incorrect publication date format: {self.fields['publication_date']}\n"
-                f"Expected --publication-date format: dd-mm-yyyy or dd-mm-yyyy:dd-mm-yyyy, between 1900-2099\n\n"
-            )
-        # verify platform
-        platform_matcher = {
-            ".*oxford.*|.*nanopore.*": "OXFORD_NANOPORE",
-            ".*illumina.*": "ILLUMINA",
-            ".*ion.*torrent.*": "ION_TORRENT",
-            ".*capillary.*": "CAPILLARY",
-            ".*pacbio.*|.*smrt.*": "PACBIO_SMRT",
-            ".*abi.*solid.*": "ABI_SOLID",
-            ".*bgi.*": "BGISEQ",
-            ".*454.*": "LS454",
-            ".*complete.*genomics.*": "COMPLETE_GENOMICS",
-            ".*helicos.*": "HELICOS",
-        }
-        if self.fields["platform"]:
-            error_message = (
-                f"Incorrect platform: {self.fields['platform']}\n"
-                f"--platform must be one of the following: \n"
-                f"OXFORD_NANOPORE, ILLUMINA, ION_TORRENT, \n"
-                f"CAPILLARY, PACBIO_SMRT, ABI_SOLID, \n"
-                f"BGISEQ, LS454, COMPLETE_GENOMICS, HELICOS\n\n"
-            )
-            output = self._input_multi_regex_checker(
-                platform_matcher, self.fields["platform"], error_message
-            )
-            if output[1]:
-                message += output[1]
-            else:
-                self.fields["platform"] = output[0]
-        # verify selection
-        selection_matcher = {
-            ".*methylcytidine.*": "5-methylcytidine antibody",
-            ".*cage.*": "CAGE",
-            r".*chip\s*$": "ChIP",
-            ".*chip.*seq.*": "ChIP-Seq",
-            ".*dnase.*": "DNase",
-            ".*hmpr.*": "HMPR",
-            ".*hybrid.*": "Hybrid Selection",
-            r".*inverse.*rrna\s*$": "Inverse rRNA",
-            ".*inverse.*rrna.*selection.*": "Inverse rRNA selection",
-            ".*mbd2.*protein.*methyl.*cpg.*binding.*domain.*": "MBD2 protein methyl-CpG binding domain",
-            ".*mda.*": "MDA",
-            ".*mf.*": "MF",
-            ".*mnase.*": "MNase",
-            ".*msll.*": "MSLL",
-            r"^\s*oligo.*dt.*": "Oligo-dT",
-            r"^\s*pcr\s*$": "PCR",
-            ".*poly[ -_]*a.*": "PolyA",
-            ".*race.*": "RACE",
-            r".*random\s*$": "RANDOM",
-            ".*random.*pcr.*": "RANDOM PCR",
-            ".*rt[ -_]*pcr.*": "RT-PCR",
-            ".*reduced.*representation.*": "Reduced Representation",
-            ".*restriction.*digest.*": "Restriction Digest",
-            r".*cdna\s*$": "cDNA",
-            ".*cdna.*oligo.*dt": "cDNA_oligo_dT.*",  # ENA only
-            ".*cdna.*random.*priming": "cDNA_randomPriming.*",  # ENA only
-            ".*other.*": "other",
-            ".*padlock.*probes.*capture.*method.*": "padlock probes capture method",
-            ".*repeat.*fractionation.*": "repeat fractionation",
-            ".*size.*fractionation.*": "size fractionation",
-            ".*unspecified.*": "unspecified",
-        }
-        if self.fields["selection"]:
-            error_message = (
-                f"Incorrect selection: {self.fields['selection']}\n"
-                f"--selection must be one of the following: \n"
-                f"5-methylcytidine antibody, CAGE, ChIP, ChIP-Seq, DNase, HMPR, Hybrid Selection,  \n"
-                f"Inverse rRNA, Inverse rRNA selection, MBD2 protein methyl-CpG binding domain, \n"
-                f"MDA, MF, MNase, MSLL, Oligo-dT, PCR, PolyA, RACE, RANDOM, RANDOM PCR, RT-PCR,  \n"
-                f"Reduced Representation, Restriction Digest, cDNA, cDNA_oligo_dT, cDNA_randomPriming \n"
-                f"other, padlock probes capture method, repeat fractionation, size fractionation, \n"
-                f"unspecified\n\n"
-            )
-            output = self._input_multi_regex_checker(
-                selection_matcher, self.fields["selection"], error_message
-            )
-            if output[1]:
-                message += output[1]
-            else:
-                self.fields["selection"] = output[0]
-        # verify source
-        source_matcher = {
-            r"^\s*genomic\s*$": "GENOMIC",
-            ".*genomic.*single.*cell.*": "GENOMIC SINGLE CELL",
-            ".*metagenomic.*": "METAGENOMIC",
-            ".*metatranscriptomic.*": "METATRANSCRIPTOMIC",
-            ".*other.*": "OTHER",
-            ".*synthetic.*": "SYNTHETIC",
-            r"^\s*transcriptomic\s*$": "TRANSCRIPTOMIC",
-            ".*transcriptomic.*single.*cell.*": "TRANSCRIPTOMIC SINGLE CELL",
-            ".*viral.*rna.*": "VIRAL RNA",
-        }
-        if self.fields["source"]:
-            error_message = (
-                f"Incorrect source: {self.fields['source']}\n"
-                f"--source must be one of the following: \n"
-                f"GENOMIC, GENOMIC SINGLE CELL, METAGENOMIC,  \n"
-                f"METATRANSCRIPTOMIC, OTHER, SYNTHETIC, \n"
-                f"TRANSCRIPTOMIC, TRANSCRIPTOMIC SINGLE CELL, VIRAL RNA\n\n"
-            )
-            output = self._input_multi_regex_checker(
-                source_matcher, self.fields["source"], error_message
-            )
-            if output[1]:
-                message += output[1]
-            else:
-                self.fields["source"] = output[0]
-        # verify strategy
-        strategy_matcher = {
-            ".*amplicon.*": "AMPLICON",
-            ".*atac.*": "ATAC-seq",
-            ".*bisulfite.*": "Bisulfite-Seq",
-            r"^\s*clone\s*$": "CLONE",
-            ".*cloneend.*": "CLONEEND",
-            ".*cts.*": "CTS",
-            ".*chia.*|.*pet.*": "ChIA-PET",
-            ".*chip.*seq.*": "ChIP-Seq",
-            ".*dnase.*|.*hypersensitivity.*": "DNase-Hypersensitivity",
-            r"^\s*est\s*$": "EST",
-            ".*faire.*": "FAIRE-seq",
-            ".*finishing.*": "FINISHING",
-            ".*fl.*cdna.*": "FL-cDNA",
-            ".*hi.*c.*": "Hi-C",
-            ".*mbd.*": "MBD-Seq",
-            ".*mnase.*": "MNase-Seq",
-            ".*mre.*": "MRE-Seq",
-            ".*medip.*": "MeDIP-Seq",
-            ".*other.*": "OTHER",
-            ".*poolclone.*": "POOLCLONE",
-            ".*rad.*": "RAD-Seq",
-            ".*rip.*": "RIP-Seq",
-            r"^\s*rna.*seq": "RNA-Seq",
-            ".*selex.*": "SELEX",
-            ".*synthetic.*|.*long.*read.*": "Synthetic-Long-Read",
-            ".*targeted.*capture.*": "Targeted-Capture",
-            ".*tethered.*chromatin.*conformation.*capture.*|.*tccc.*": "Tethered Chromatin Conformation Capture",
-            ".*tn.*": "Tn-Seq",
-            ".*validation.*": "VALIDATION",
-            ".*wcs.*": "WCS",
-            ".*wga.*": "WGA",
-            ".*wgs.*": "WGS",
-            ".*wxs.*": "WXS",
-            ".*mirna.*": "miRNA-Seq",
-            ".*ncrna.*": "ncRNA-Seq",
-            ".*ssrna.*": "ssRNA-seq",
-            ".*gbs.*": "GBS",
-        }
-        if self.fields["strategy"]:
-            error_message = (
-                f"Incorrect strategy: {self.fields['strategy']}\n"
-                f"--strategy must be one of the following: \n"
-                f"AMPLICON, ATAC-seq, Bisulfite-Seq, CLONE, CLONEEND, CTS, ChIA-PET, ChIP-Seq, \n"
-                f"DNase-Hypersensitivity, EST, FAIRE-seq, FINISHING, FL-cDNA, Hi-C, MBD-Seq, MNase-Seq,\n"
-                f"MRE-Seq, MeDIP-Seq, OTHER, POOLCLONE, RAD-Seq, RIP-Seq, RNA-Seq, SELEX, \n"
-                f"Synthetic-Long-Read, Targeted-Capture, Tethered Chromatin Conformation Capture, \n"
-                f"Tn-Seq, VALIDATION, WCS, WGA, WGS, WXS, miRNA-Seq, ncRNA-Seq, ssRNA-seq, GBS\n\n"
-            )
-            output = self._input_multi_regex_checker(
-                strategy_matcher, self.fields["strategy"], error_message
-            )
-            if output[1]:
-                message += output[1]
-            else:
-                self.fields["strategy"] = output[0]
-        if message:
-            raise IncorrectFieldException(message)
+        pass
 
     def _list_stat(self, stat_header):
         stat = self.stats[stat_header]
@@ -582,7 +371,7 @@ class QuerySearch:
 
     def get_plot_objects(self):
         """Get the plot objects for plots generated."""
-        return self.plot_objects
+        pass
 
     def _plot_graph(self, plt, axes, show, savedir, too_many_organisms):
         """Plots a graph based on data from self.stats
@@ -806,7 +595,7 @@ class SraSearch(QuerySearch):
         Note: There is a chance that some uids retrieved do not appear in
         the search result output (Refer to #88)
         """
-        return self.uids
+        pass
 
     def _format_query_string(self):
         term = ""

@@ -134,30 +134,7 @@ def guess_cell_type(sample_attribute):
                Possible cell type of sample.
                Returns None if no match found.
     """
-    sample_attribute = str(sample_attribute)
-    cell_type = None
-    if "cell line:" in sample_attribute:
-        x = re.search(r"cell line: \w+", sample_attribute)
-        cell_type = re.sub(r"\s+", " ", x.group(0).lstrip("cell line:").lower().strip())
-    if "cell_line:" in sample_attribute:
-        x = re.search(r"cell_line: \w+", sample_attribute)
-        cell_type = re.sub(r"\s+", " ", x.group(0).lstrip("cell_line:").lower().strip())
-    if "cell-line:" in sample_attribute:
-        x = re.search(r"cell-line: \w+", sample_attribute)
-        cell_type = re.sub(r"\s+", " ", x.group(0).lstrip("cell-line:").lower().strip())
-    if "cell_type:" in sample_attribute:
-        x = re.search(r"cell_type: \w+", sample_attribute)
-        return re.sub(r"\s+", " ", x.group(0).lstrip("cell_type:").lower().strip())
-    if "source_name:" in sample_attribute:
-        x = re.search(r"source_name: \w+", sample_attribute)
-        cell_type = re.sub(
-            r"\s+", " ", x.group(0).lstrip("source_name:").lower().strip()
-        )
-    else:
-        warnings.warn(
-            "Couldn't parse {} for cell line".format(sample_attribute), UserWarning
-        )
-    return cell_type
+    pass
 
 
 def guess_tissue_type(sample_attribute):
@@ -174,16 +151,7 @@ def guess_tissue_type(sample_attribute):
                Possible cell type of sample.
                Returns None if no match found.
     """
-    sample_attribute = str(sample_attribute)
-    tissue_type = None
-    if "tissue: " in sample_attribute:
-        x = re.search(r"tissue: \w+", sample_attribute)
-        tissue_type = re.sub(r"\s+", " ", x.group(0).lstrip("tissue:").lower().strip())
-    else:
-        warnings.warn(
-            "Couldn't parse {} for tissue".format(sample_attribute), UserWarning
-        )
-    return tissue_type
+    pass
 
 
 def guess_strain_type(sample_attribute):
@@ -200,13 +168,4 @@ def guess_strain_type(sample_attribute):
                  Possible cell type of sample.
                  Returns None if no match found.
     """
-    sample_attribute = str(sample_attribute)
-    strain_type = None
-    if "strain: " in sample_attribute:
-        x = re.search(r"strain: \w+", sample_attribute)
-        strain_type = re.sub(r"\s+", " ", x.group(0).lstrip("strain:").lower().strip())
-    else:
-        warnings.warn(
-            "Couldn't parse {} for strain".format(sample_attribute), UserWarning
-        )
-    return strain_type
+    pass

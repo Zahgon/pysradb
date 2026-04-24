@@ -36,8 +36,7 @@ def path_leaf(path):
     tail: string
           Filename
     """
-    head, tail = ntpath.split(path)
-    return tail or ntpath.basename(head)
+    pass
 
 
 def requests_3_retries():
@@ -142,14 +141,12 @@ class TqdmUpTo(tqdm):
         tsize  : int, optional
             Total size (in tqdm units). If [default: None] remains unchanged.
         """
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
+        pass
 
 
 def _extract_first_field(data):
     """Extract first field from a list of fields."""
-    return list(next(iter(zip(*data))))
+    pass
 
 
 def _find_aspera_keypath(aspera_dir=None):
@@ -165,13 +162,7 @@ def _find_aspera_keypath(aspera_dir=None):
     aspera_keypath: string
                     Location to aspera key
     """
-    if aspera_dir is None:
-        aspera_dir = os.path.join(os.path.expanduser("~"), ".aspera")
-    aspera_keypath = os.path.join(
-        aspera_dir, "connect", "etc", "asperaweb_id_dsa.openssh"
-    )
-    if os.path.isfile(aspera_keypath):
-        return aspera_keypath
+    pass
 
 
 def mkdir_p(path):
@@ -204,9 +195,7 @@ def order_dataframe(df, columns):
     columns: list
              List of columns that need to be put in front
     """
-    remaining_columns = [w for w in df.columns if w not in columns]
-    df = df[columns + remaining_columns]
-    return df
+    pass
 
 
 def _get_url(url, download_to, show_progress=True):
@@ -236,20 +225,7 @@ def _get_url(url, download_to, show_progress=True):
 
 def run_command(command, verbose=False):
     """Run a shell command"""
-    process = subprocess.Popen(
-        shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    )
-
-    while True:
-        output = process.stdout.readline().strip()
-        output = output.decode("utf-8")
-        if output == "" and process.poll() is not None:
-            break
-        if output:
-            if verbose:
-                print((str(output.strip())))
-    rc = process.poll()
-    return rc
+    pass
 
 
 def get_gzip_uncompressed_size(filepath):
