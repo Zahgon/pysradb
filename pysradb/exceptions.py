@@ -11,13 +11,7 @@ class MissingQueryException(Exception):
     """
 
     def __init__(self):
-        self.message = (
-            "No valid query has been supplied. \n"
-            "A query must be supplied to one of the following fields:\n"
-            "[--query, --accession, --organism, --layout, --mbases, --publication-date,"
-            " --platform, --selection, --source, --strategy, --title]"
-        )
-        super().__init__(self.message)
+        raise NotImplementedError
 
 
 class IncorrectFieldException(Exception):

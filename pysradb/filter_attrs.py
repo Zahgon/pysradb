@@ -6,55 +6,7 @@ import pandas as pd
 
 
 def _get_sample_attr_keys(sample_attribute):
-    if sample_attribute is None:
-        return None, None
-    sample_attribute_splitted = sample_attribute.split("||")
-    split_by_colon = [
-        str(attr).strip().split(": ") for attr in sample_attribute_splitted
-    ]
-
-    # Iterate once more to consider first one as the key
-    # and remaining as the value
-    # This is because of bad annotations like in this example
-    # Example: isolate: not applicable || organism: Mus musculus || cell_line: 17-Cl1 ||\
-    # infect: MHV-A59 || time point: 5: hour || compound: cycloheximide ||\
-    # sequencing protocol: RiboSeq || biological repeat: long read sequencing
-    # Notice the `time: 5: hour`
-    # sample_attribute: investigation type: metagenome || project name: Landsort Depth 20090415 transect ||
-    # sequencing method: 454 || collection date: 2009-04-15 || ammonium: 8.7: Ã‚ÂµM || chlorophyll: 0: Ã‚Âµg/L ||
-    # dissolved oxygen: -1.33: Ã‚Âµmol/kg || nitrate: 0.02: Ã‚ÂµM || nitrogen: 0: Ã‚ÂµM ||
-    # environmental package: water || geographic location (latitude): 58.6: DD ||
-    # geographic location (longitude): 18.2: DD || geographic location (country and/or sea,region): Baltic Sea ||
-    # environment (biome): 00002150 || environment (feature): 00002150 || environment (material): 00002150 ||
-    # depth: 400: m || Phosphate:  || Total phosphorous:  || Silicon:
-    # Handle empty cases as above
-    split_by_colon = [attr for attr in split_by_colon if len(attr) >= 2]
-
-    for index, element in enumerate(split_by_colon):
-        if len(element) > 2:
-            key = element[0].strip()
-            value = ":".join(element[1:]).strip()
-            split_by_colon[index] = [key, value]
-
-    try:
-        sample_attribute_dict = dict(split_by_colon)
-    except ValueError:
-        print("This is most likely a bug, please report it upstream.")
-        print(("sample_attribute: {}".format(sample_attribute)))
-        raise
-    sample_attribute_keys = list(
-        map(
-            lambda x: re.sub(r"\s+", " ", x.strip().replace(" ", "_").lower()),
-            list(sample_attribute_dict.keys()),
-        )
-    )
-    sample_attribute_values = list(
-        map(
-            lambda x: re.sub(r"\s+", " ", x.strip().lower().strip().replace(",", "__")),
-            list(sample_attribute_dict.values()),
-        )
-    )
-    return sample_attribute_keys, sample_attribute_values
+    raise NotImplementedError
 
 
 def expand_sample_attribute_columns(metadata_df):
@@ -78,46 +30,7 @@ def expand_sample_attribute_columns(metadata_df):
                  Dataframe with additionals columns pertaining
                  to sample_attribute appended
     """
-    additional_columns = []
-    metadata_df = metadata_df.copy()
-    for idx, row in metadata_df.iterrows():
-        sample_attribute = row["sample_attribute"]
-        if not sample_attribute:
-            continue
-        sample_attribute = sample_attribute.strip()
-        sample_attribute_keys, _ = _get_sample_attr_keys(sample_attribute)
-        if sample_attribute_keys:
-            additional_columns += sample_attribute_keys
-    additional_columns = list(sorted(set(additional_columns)))
-    # if any of the additional column already exists
-    # call the additional column  as *_expanded
-    additional_columns = list(
-        map(
-            lambda x: x if x not in metadata_df.columns.tolist() else x + "_expanded",
-            additional_columns,
-        )
-    )
-    additional_columns = list(sorted(additional_columns))
-    empty_df = pd.DataFrame(columns=additional_columns)
-    metadata_df_expanded = pd.concat([metadata_df, empty_df], axis=1)
-    for idx, row in metadata_df_expanded.iterrows():
-        sample_attribute = row["sample_attribute"]
-        sample_attribute_keys, sample_attribute_values = _get_sample_attr_keys(
-            sample_attribute
-        )
-        if sample_attribute_keys:
-            sample_attribute_keys = list(
-                map(
-                    lambda x: (
-                        x if x not in metadata_df.columns.tolist() else x + "_expanded"
-                    ),
-                    sample_attribute_keys,
-                )
-            )
-        metadata_df_expanded.loc[idx, sample_attribute_keys] = sample_attribute_values
-    if np.nan in metadata_df_expanded.columns.tolist():
-        del metadata_df_expanded[np.nan]
-    return metadata_df_expanded
+    raise NotImplementedError
 
 
 def guess_cell_type(sample_attribute):

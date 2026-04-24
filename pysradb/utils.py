@@ -48,16 +48,7 @@ def requests_3_retries():
         requests session object that allows 3 retries for server-side
         errors.
     """
-    session = requests.Session()
-    retry = Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=[500, 502, 503, 504],
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session
+    raise NotImplementedError
 
 
 def scientific_name_to_taxid(name):
@@ -80,30 +71,7 @@ def scientific_name_to_taxid(name):
 
     """
 
-    session = requests_3_retries()
-    r = session.get(
-        "https://www.ebi.ac.uk/ena/taxonomy/rest/scientific-name/" + name,
-        timeout=10,
-    )
-    if r.status_code == 404:
-        raise IncorrectFieldException(f"Unknown scientific name: {name}")
-    r.raise_for_status()
-
-    try:
-        data = r.json()
-    except requests.exceptions.JSONDecodeError as e:
-        raise IncorrectFieldException(
-            f"Failed to parse taxonomy response for '{name}'. "
-            f"API returned status {r.status_code} but invalid JSON. "
-            f"Response: {r.text[:200]}"
-        ) from e
-
-    if not data or not isinstance(data, list) or len(data) == 0:
-        raise IncorrectFieldException(
-            f"No taxonomy data found for scientific name: {name}"
-        )
-
-    return data[0]["taxId"]
+    raise NotImplementedError
 
 
 def unique(sequence):
@@ -118,8 +86,7 @@ def unique(sequence):
     unique_list: list
                  List with unique elements maintaining the order
     """
-    visited = set()
-    return [x for x in sequence if not (x in visited or visited.add(x))]
+    raise NotImplementedError
 
 
 class TqdmUpTo(tqdm):
@@ -173,14 +140,7 @@ def mkdir_p(path):
     path : string
            Path to directory to create
     """
-    if path:
-        try:
-            os.makedirs(path)
-        except OSError as exc:  # Python >2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
+    raise NotImplementedError
 
 
 def order_dataframe(df, columns):
@@ -210,17 +170,7 @@ def _get_url(url, download_to, show_progress=True):
     show_progress: bool
                    Set to True by default to print progress bar
     """
-    desc_file = "Downloading {}".format(url.split("/")[-1])
-    mkdir_p(os.path.dirname(download_to))
-    if show_progress:
-        with TqdmUpTo(
-            unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=desc_file
-        ) as t:
-            urllib_request.urlretrieve(
-                url, download_to, reporthook=t.update_to, data=None
-            )
-    else:
-        urllib_request.urlretrieve(url, download_to)
+    raise NotImplementedError
 
 
 def run_command(command, verbose=False):
@@ -241,8 +191,7 @@ def get_gzip_uncompressed_size(filepath):
     filesize: int
               Uncompressed file size
     """
-    with gzip.open(filepath, "rb") as file_obj:
-        return file_obj.seek(0, io.SEEK_END)
+    raise NotImplementedError
 
 
 def confirm(preceeding_text):
@@ -257,15 +206,7 @@ def confirm(preceeding_text):
     -------
     response: bool
     """
-    print(os.linesep, flush=True)
-    notification_str = "Please respond with 'y' or 'n'"
-    while True:
-        choice = input("{} [Y/n]: ".format(preceeding_text)).lower()
-        if choice in ["yes", "y"] or not choice:
-            return True
-        if choice in ["no", "n"]:
-            return False
-        print(notification_str, flush=True)
+    raise NotImplementedError
 
 
 def copyfileobj(fsrc, fdst, bufsize=16384, filesize=None, desc=""):
@@ -284,17 +225,4 @@ def copyfileobj(fsrc, fdst, bufsize=16384, filesize=None, desc=""):
     desc: string
           Description for tqdm status
     """
-    with tqdm(
-        total=filesize,
-        unit="B",
-        unit_scale=True,
-        miniters=1,
-        unit_divisor=1024,
-        desc=desc,
-    ) as pbar:
-        while True:
-            buf = fsrc.read(bufsize)
-            if not buf:
-                break
-            fdst.write(buf)
-            pbar.update(len(buf))
+    raise NotImplementedError

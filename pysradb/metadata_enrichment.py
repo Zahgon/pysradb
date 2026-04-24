@@ -30,7 +30,7 @@ class MetadataExtractor(ABC):
     """Base class for metadata extraction from experiment descriptions."""
 
     def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
+        raise NotImplementedError
 
     @abstractmethod
     def extract_metadata(
@@ -61,7 +61,7 @@ class MetadataExtractor(ABC):
         Returns:
             List of dictionaries with extracted metadata
         """
-        return [self.extract_metadata(text, fields) for text in texts]
+        raise NotImplementedError
 
     def _find_column_variant(self, df: pd.DataFrame, target_col: str) -> Optional[str]:
         """
@@ -79,13 +79,7 @@ class MetadataExtractor(ABC):
         Returns:
             Actual column name if found, None otherwise
         """
-        target_normalized = target_col.lower().replace("_", "").replace(" ", "")
-
-        for col in df.columns:
-            col_normalized = str(col).lower().replace("_", "").replace(" ", "")
-            if col_normalized == target_normalized:
-                return col
-        return None
+        raise NotImplementedError
 
     def enrich_dataframe(
         self,
@@ -109,72 +103,7 @@ class MetadataExtractor(ABC):
             DataFrame with additional metadata columns
         """
         # If text_column not specified, combine all relevant columns
-        if text_column is None:
-            preferred_columns = [
-                "sample_title",
-                "experiment_title",
-                "sample_source_name",
-                "source_name",
-                "sample_type",
-                "sex",
-                "age",
-                "tissue",
-                "cell_type",
-                "disease",
-                "disease_status",
-                "treatment",
-                "compound",
-                "extract_protocol",
-                "label_protocol",
-                "sample_summary",
-                "description",
-            ]
-
-            exclude_columns = [
-                "study_title",
-                "study_summary",
-                "series_title",
-                "series_summary",
-            ]
-
-            available_cols = []
-            for col in preferred_columns:
-                actual_col = self._find_column_variant(df, col)
-                if actual_col and actual_col not in exclude_columns:
-                    available_cols.append(actual_col)
-
-            if not available_cols:
-                raise ValueError(
-                    "No suitable text columns found in DataFrame. "
-                    "Please specify text_column parameter or ensure DataFrame "
-                    "contains columns like 'sample_title', 'experiment_title', etc."
-                )
-
-            texts = []
-            for idx, row in df.iterrows():
-                parts = []
-                for col in available_cols:
-                    if pd.notna(row[col]):
-                        parts.append(f"{col}: {row[col]}")
-                texts.append(". ".join(parts))
-        else:
-            if text_column not in df.columns:
-                raise ValueError(f"Column '{text_column}' not found in DataFrame")
-            texts = df[text_column].fillna("").tolist()
-
-        if show_progress:
-            metadata_list = [
-                self.extract_metadata(text, fields)
-                for text in tqdm(texts, desc="Enriching metadata", unit="row")
-            ]
-        else:
-            metadata_list = self.extract_batch(texts, fields)
-
-        df_enriched = df.copy()
-        for field in metadata_list[0].keys():
-            df_enriched[f"{prefix}{field}"] = [m.get(field) for m in metadata_list]
-
-        return df_enriched
+        raise NotImplementedError
 
 
 class _MetadataExtraction(BaseModel):
@@ -245,18 +174,7 @@ class LLMMetadataExtractor(MetadataExtractor):
         max_retries: int = 3,
         **kwargs,
     ):
-        super().__init__()
-        self.provider = backend or DEFAULT_LLM_PROVIDER
-
-        self.model = model
-
-        env_key = self._provider_env_key()
-        self.api_key = api_key or (os.getenv(env_key) if env_key else None)
-        self.base_url = base_url
-        self.temperature = temperature
-        self.max_retries = max_retries
-        self.kwargs = kwargs
-        self.client = self._initialize_client()
+        raise NotImplementedError
 
     def _provider_env_key(self) -> Optional[str]:
         pass
@@ -272,127 +190,11 @@ class LLMMetadataExtractor(MetadataExtractor):
         self, text: str, fields: Optional[List[str]] = None
     ) -> str:
         """Create prompt for metadata extraction."""
-        default_fields = [
-            "organ",
-            "tissue",
-            "anatomical_system",
-            "cell_type",
-            "disease",
-            "sex",
-            "development_stage",
-            "assay",
-            "organism",
-        ]
-        target_fields = fields or default_fields
-
-        prompt = f"""Extract biological metadata using ontology-based terminology (UBERON, MONDO, CL).
-
-CRITICAL PRIORITY RULE:
-If a field is explicitly labeled in the metadata, prioritize that information. You may make reasonable generalizations
-(e.g., "CD19+ B cells" → "b cells", "CD4+ T cells" → "t cells"), but DO NOT over-generalize to broader categories.
-
-BULK TISSUE AND WHOLE-SAMPLE HANDLING (IMPORTANT):
-When the metadata contains keywords indicating bulk tissue or whole samples (bulk, PDX, xenograft, tumor, tissue,
-whole tissue, homogenate), the sample contains MIXED CELL TYPES. Do NOT invent specific cell types:
-- "bulk RNA-seq from PDX" → cell_type: "Unknown" (NOT "neuron" or any specific cell type)
-- "tumor tissue" → cell_type: "Unknown", organ/tissue from source if clear (NOT inferred from invented cell types)
-- "xenograft" → cell_type: "Unknown" (multiple cell types present)
-- "whole tissue" → cell_type: "Unknown" (NOT a specific cell type)
-RULE: If cell_type is not explicitly stated AND the sample is described as bulk/whole/tissue/tumor/PDX, return "Unknown" for cell_type.
-
-Examples of CORRECT extraction:
-- "cell type: CD19+ B cells" → cell_type: "b cells" or "cd19+ b cells" (NOT "pbmc" - too broad)
-- "cell type: CD4+ T cells" → cell_type: "t cells" or "cd4+ t cells" (NOT "lymphocyte" or "pbmc" - too broad)
-- "cell type: hepatocytes" → cell_type: "hepatocyte" (NOT "liver cells" - less specific)
-- "tissue: prefrontal cortex" → tissue: "prefrontal cortex" or "brain" (NOT "nervous tissue" - too broad)
-- "disease: Multiple sclerosis" → disease: "multiple sclerosis" (NOT "healthy" or "autoimmune disease")
-- "bulk RNA-seq from PDX" → cell_type: "Unknown" (NOT "neuron" or invented types), organ: "Unknown" if not stated
-- "sample_description: tumor tissue" → cell_type: "Unknown", organ: "Unknown" (do not invent)
-
-CELL TYPE INFERENCE RULES (only when NOT explicitly stated AND NOT bulk/PDX/tumor/whole tissue):
-- Cell types indicate their origin organ/tissue. Use this biological knowledge ONLY for purified cell populations:
-  * Blood cells (PBMC, T cell, B cell, lymphocyte, monocyte, macrophage, NK cell) → organ: blood, tissue: peripheral blood, system: immune system
-  * Brain cells (neuron, astrocyte, microglia, oligodendrocyte) → organ: brain, tissue: brain tissue, system: nervous system
-  * Liver cells (hepatocyte) → organ: liver, tissue: liver parenchyma, system: digestive system
-  * Heart cells (cardiomyocyte) → organ: heart, tissue: cardiac tissue, system: cardiovascular system
-  * Lung cells (pneumocyte, alveolar cell) → organ: lung, tissue: lung parenchyma, system: respiratory system
-  * Apply similar biological reasoning for OTHER PURIFIED cell types ONLY
-
-EXTRACTION RULES:
-1. **cell_type**: FIRST check for "cell type:", "cell_type:", "celltype:" or "cellType:" labels. If not stated, check if sample is bulk/PDX/tumor/tissue/xenograft - if yes, return "Unknown". Otherwise, use stated value or reasonable generalization (CD19+ B cells → b cells). NEVER invent cell types.
-2. **disease**: FIRST check for "disease:", "disease status:", or "condition:" labels. Use exact disease name. "Normal"/"control"/"WT"→healthy only if NO disease is stated.
-3. **tissue**: FIRST check for "tissue:", "source_name:" labels. Use stated value or reasonable generalization. Otherwise infer from EXPLICITLY STATED cell_type/organ. Do NOT infer from invented cell types.
-4. **organ**: Look for explicit organ name. Do NOT infer organ from invented cell types. Return "Unknown" if not stated.
-5. **anatomical_system**: Derive from EXPLICIT organ/cell_type information only. Return "Unknown" if not determinable.
-6. **sex**: F=female, M=male. Return: male, female, mixed, or Unknown. Lowercase.
-7. **development_stage**: From age - handle 'y' for years, 'm' for months (e.g., 17m=17 months=1.4 years). Use: 0-2y=infant, 3-12y=child, 13-18y=adolescent, 19-64y=adult, 65+=aged. Convert months to years when needed. Lowercase.
-8. **assay**: RNA-seq, scRNA-seq, CITE-seq, ATAC-seq, Bisulfite-Seq, etc. Lowercase.
-9. **organism**: Homo sapiens, Mus musculus, or common names. Lowercase unless scientific.
-
-EXAMPLES showing CORRECT extraction with reasonable generalization:
-"cell type: CD19+ B cells, disease status: Multiple sclerosis" → cell_type: "b cells" (acceptable: "cd19+ b cells"), disease: "multiple sclerosis"
-"cell type: PBMC, tissue: peripheral blood" → cell_type: "pbmc", tissue: "peripheral blood"
-"cell_type: CD8+ memory T cells" → cell_type: "t cells" (acceptable: "cd8+ memory t cells", "memory t cells")
-"cell type: activated microglia" → cell_type: "microglia" (acceptable: "activated microglia")
-"sample_description: bulk RNA-seq from PDX, source: breast tumor" → cell_type: "Unknown", organ: "Unknown", disease: "Unknown"
-"sample_source: PDX1, sample_title: MJH1_G1M1, description: bulk RNA-seq" → cell_type: "Unknown", organ: "Unknown" (do NOT invent "neuron")
-
-Metadata: {text}
-
-Extract (use "Unknown" only if truly unclear):
-"""
-        field_descriptions = {
-            "organ": "High-level organ - use stated value only or return 'Unknown'. Do NOT invent from cell types. (lowercase)",
-            "tissue": "Specific tissue - use stated value or reasonable generalization from EXPLICIT data only. Return 'Unknown' if not stated. (lowercase)",
-            "anatomical_system": "Major body system - only if clearly stated or derivable from explicit organ/cell type. Return 'Unknown' otherwise. (lowercase)",
-            "cell_type": "Cell type ONLY if explicitly stated or if bulk/PDX/tumor/tissue keywords present → return 'Unknown'. Allow generalization (CD19+ B cells → b cells) but NEVER invent specific types. (lowercase)",
-            "disease": "Exact disease name if explicitly stated (e.g., 'multiple sclerosis'), or 'healthy' for controls. Return 'Unknown' if not stated. (lowercase)",
-            "sex": "Biological sex: 'male', 'female', 'mixed', or 'Unknown'",
-            "development_stage": "Life/developmental stage - from age if stated. Return 'Unknown' if age not provided. (lowercase)",
-            "assay": "Sequencing or experimental assay type (lowercase)",
-            "organism": "Species (scientific name preferred, or common name). Return 'Unknown' if not stated.",
-        }
-
-        for field in target_fields:
-            if field in field_descriptions:
-                prompt += f"- {field}: {field_descriptions[field]}\n"
-
-        prompt += f"""
-Respond in JSON format with these exact keys:
-{{
-  "organ": "your answer",
-  "tissue": "your answer",
-  "anatomical_system": "your answer",
-  "cell_type": "your answer",
-  "disease": "your answer",
-  "sex": "your answer",
-  "development_stage": "your answer",
-  "assay": "your answer",
-  "organism": "your answer"
-}}"""
-
-        return prompt
+        raise NotImplementedError
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call the LLM backend with the prompt."""
-        try:
-            create_kwargs = {
-                "messages": [{"role": "user", "content": prompt}],
-                "response_model": _MetadataExtraction,
-                "temperature": self.temperature,
-                "max_retries": self.max_retries,
-            }
-
-            if self.model is not None:
-                create_kwargs["model"] = self.model
-
-            response = self.client.chat.completions.create(**create_kwargs)
-            return response.model_dump()
-        except Exception as e:
-            self.logger.error(f"LLM call failed for provider '{self.provider}': {e}")
-            raise RuntimeError(
-                f"LLM call failed with provider '{self.provider}': {e}"
-            ) from e
+        raise NotImplementedError
 
     def extract_metadata(
         self, text: str, fields: Optional[List[str]] = None
@@ -407,26 +209,7 @@ Respond in JSON format with these exact keys:
         Returns:
             Dictionary with extracted metadata
         """
-        if not text or text.strip() == "":
-            return {
-                "organ": "Unknown",
-                "tissue": "Unknown",
-                "anatomical_system": "Unknown",
-                "cell_type": "Unknown",
-                "disease": "Unknown",
-                "sex": "Unknown",
-                "development_stage": "Unknown",
-                "assay": "Unknown",
-                "organism": "Unknown",
-            }
-
-        prompt = self._create_extraction_prompt(text, fields)
-        data = self._call_llm(prompt)
-
-        if fields:
-            return {field: data.get(field, "Unknown") for field in fields}
-
-        return data
+        raise NotImplementedError
 
 
 class EmbeddingMetadataExtractor(MetadataExtractor):
@@ -451,19 +234,7 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
         Raises:
             ValueError: If reference_categories is not provided
         """
-        super().__init__()
-        if reference_categories is None:
-            raise ValueError(
-                "reference_categories is required for embedding-based extraction. "
-                "Please provide a dictionary mapping category names to lists of reference terms. "
-                "Example: {'tissue': ['blood', 'brain', 'liver'], 'disease': ['healthy', 'cancer']}"
-            )
-        self.model_name = model_name
-        self.backend = backend
-        self.kwargs = kwargs
-        self.model = self._load_model()
-        self.reference_categories = reference_categories
-        self.reference_embeddings = self._compute_reference_embeddings()
+        raise NotImplementedError
 
     def _load_model(self):
         """Load the embedding model."""
@@ -481,23 +252,7 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
         self, text_embedding, category: str, threshold: float = 0.3
     ) -> str:
         """Find best matching category using cosine similarity."""
-        import numpy as np
-        from sklearn.metrics.pairwise import cosine_similarity
-
-        if category not in self.reference_embeddings:
-            return "Unknown"
-
-        ref_embeddings = self.reference_embeddings[category]
-        text_emb = np.array(text_embedding).reshape(1, -1)
-
-        similarities = cosine_similarity(text_emb, ref_embeddings)[0]
-        max_idx = np.argmax(similarities)
-        max_sim = similarities[max_idx]
-
-        if max_sim >= threshold:
-            return self.reference_categories[category][max_idx]
-        else:
-            return "Unknown"
+        raise NotImplementedError
 
     def _parse_structured_fields(self, text: str) -> Dict[str, str]:
         """
@@ -509,17 +264,7 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
         Returns:
             Dictionary of parsed field-value pairs
         """
-        import re
-
-        parsed = {}
-        # Pattern to match "field_name: value" where value extends to next field or end
-        pattern = r"([a-z_]+):\s*([^.]+?)(?:\.|$)"
-        matches = re.findall(pattern, text, re.IGNORECASE)
-
-        for field_name, value in matches:
-            parsed[field_name.strip().lower()] = value.strip()
-
-        return parsed
+        raise NotImplementedError
 
     def _match_value_or_text(
         self, value: Optional[str], full_text: str, category: str
@@ -539,34 +284,7 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
         Returns:
             Best matching category value or "Unknown"
         """
-        import numpy as np
-
-        if value and category in self.reference_categories:
-            try:
-                if self.backend == "sentence-transformers":
-                    value_embedding = self.model.encode(value)
-                elif self.backend == "fastembed":
-                    value_embedding = np.array(list(self.model.embed([value])))[0]
-
-                result = self._find_best_match(value_embedding, category)
-                if result != "Unknown":
-                    return result
-            except Exception:
-                pass  # Fall through to full text matching
-
-        # Fall back to full text matching
-        if category in self.reference_categories:
-            try:
-                if self.backend == "sentence-transformers":
-                    text_embedding = self.model.encode(full_text)
-                elif self.backend == "fastembed":
-                    text_embedding = np.array(list(self.model.embed([full_text])))[0]
-
-                return self._find_best_match(text_embedding, category)
-            except Exception:
-                return "Unknown"
-
-        return "Unknown"
+        raise NotImplementedError
 
     def extract_metadata(
         self, text: str, fields: Optional[List[str]] = None
@@ -581,66 +299,7 @@ class EmbeddingMetadataExtractor(MetadataExtractor):
         Returns:
             Dictionary with extracted metadata
         """
-        if not text or text.strip() == "":
-            return {
-                "organ": "Unknown",
-                "tissue": "Unknown",
-                "anatomical_system": "Unknown",
-                "cell_type": "Unknown",
-                "disease": "Unknown",
-                "sex": "Unknown",
-                "development_stage": "Unknown",
-                "assay": "Unknown",
-                "organism": "Unknown",
-            }
-
-        structured_fields = self._parse_structured_fields(text)
-
-        organ = self._match_value_or_text(
-            structured_fields.get("organ") or structured_fields.get("source_name"),
-            text,
-            "organs",
-        )
-        tissue = self._match_value_or_text(
-            structured_fields.get("tissue"),
-            text,
-            "tissues",
-        )
-        cell_type = self._match_value_or_text(
-            structured_fields.get("cell_type"), text, "cell_types"
-        )
-        disease = self._match_value_or_text(
-            structured_fields.get("disease"), text, "diseases"
-        )
-        anatomical_system = self._match_value_or_text(
-            structured_fields.get("anatomical_system"), text, "anatomical_systems"
-        )
-        sex = self._match_value_or_text(structured_fields.get("sex"), text, "sex")
-        development_stage = self._match_value_or_text(
-            structured_fields.get("age") or structured_fields.get("development_stage"),
-            text,
-            "development_stage",
-        )
-        assay = self._match_value_or_text(
-            structured_fields.get("assay") or structured_fields.get("sample_title"),
-            text,
-            "assay",
-        )
-        organism = self._match_value_or_text(
-            structured_fields.get("organism"), text, "organism"
-        )
-
-        return {
-            "organ": organ,
-            "tissue": tissue,
-            "anatomical_system": anatomical_system,
-            "cell_type": cell_type,
-            "disease": disease,
-            "sex": sex,
-            "development_stage": development_stage,
-            "assay": assay,
-            "organism": organism,
-        }
+        raise NotImplementedError
 
 
 def create_metadata_extractor(
@@ -668,18 +327,7 @@ def create_metadata_extractor(
         >>> # Embedding-based (default: BioLORD-2023 for biomedical text)
         >>> extractor = create_metadata_extractor(method="embedding")
     """
-    if method.lower() == "llm":
-        backend = backend or DEFAULT_LLM_PROVIDER
-        return LLMMetadataExtractor(backend=backend, model=model, **kwargs)
-    elif method.lower() == "embedding":
-        backend = backend or "sentence-transformers"
-        return EmbeddingMetadataExtractor(
-            model_name=model or "FremyCompany/BioLORD-2023",
-            backend=backend,
-            **kwargs,
-        )
-    else:
-        raise ValueError(f"Unknown method: {method}. Choose 'llm' or 'embedding'")
+    raise NotImplementedError
 
 
 def apply_dataframe_enrichment(
